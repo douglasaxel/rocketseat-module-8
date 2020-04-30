@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import AsyncStorage from '@react-native-community/async-storage';
+import { Alert } from 'react-native';
 
 interface Product {
   id: string;
@@ -30,23 +31,103 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const cart = await AsyncStorage.getItem('GoMarketPlace:cart');
+
+      if (cart) {
+        setProducts(JSON.parse(cart));
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  const addToCart = useCallback(
+    async (product: Omit<Product, 'quantity'>) => {
+      const productExist = products.find(item => item.id === product.id);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+      if (productExist) {
+        productExist.quantity += 1;
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        const exitentProducts = products.filter(
+          item => item.id !== productExist.id,
+        );
+
+        setProducts([...exitentProducts, productExist]);
+      } else {
+        const newProd = {
+          ...product,
+          quantity: 1,
+        };
+
+        setProducts([...products, newProd]);
+      }
+
+      await AsyncStorage.setItem(
+        'GoMarketPlace:cart',
+        JSON.stringify(products),
+      );
+
+      Alert.alert(
+        'Produto adicionado',
+        'Produto adicionado com sucesso ao carrinho de compras.',
+      );
+    },
+    [products],
+  );
+
+  const increment = useCallback(
+    async id => {
+      const filteredProduct = products.find(v => v.id === id);
+
+      if (filteredProduct) {
+        filteredProduct.quantity += 1;
+        setProducts(
+          products.map(v => {
+            if (v.id === id) {
+              return filteredProduct;
+            }
+            return v;
+          }),
+        );
+      }
+
+      await AsyncStorage.setItem(
+        'GoMarketPlace:cart',
+        JSON.stringify(products),
+      );
+    },
+    [products],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      const filteredProduct = products.find(v => v.id === id);
+
+      if (filteredProduct) {
+        if (filteredProduct.quantity === 1) {
+          const updatedProducts = products.filter(v => v.id !== id);
+          setProducts(updatedProducts);
+        } else {
+          filteredProduct.quantity -= 1;
+
+          setProducts(
+            products.map(v => {
+              if (v.id === id) {
+                return filteredProduct;
+              }
+              return v;
+            }),
+          );
+        }
+      }
+
+      await AsyncStorage.setItem(
+        'GoMarketPlace:cart',
+        JSON.stringify(products),
+      );
+    },
+    [products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
